@@ -1,106 +1,130 @@
+<div align="center">
+
 # kusto-mcp
 
+**Query Azure Data Explorer from Claude and other LLMs**
+
 [![CI](https://github.com/animeshkundu/kusto-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/animeshkundu/kusto-mcp/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/animeshkundu/kusto-mcp)](https://github.com/animeshkundu/kusto-mcp/releases/latest)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://animeshkundu.github.io/kusto-mcp/)
 
-A [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server for [Azure Data Explorer](https://learn.microsoft.com/en-us/azure/data-explorer/) (Kusto). Zero-config startup with automatic headless-friendly authentication.
+A [Model Context Protocol](https://modelcontextprotocol.io/) server for [Azure Data Explorer](https://learn.microsoft.com/en-us/azure/data-explorer/) (Kusto).
+<br>Zero config. Headless auth. Multi-cluster.
 
-## Install
+</div>
 
-```bash
-pip install git+https://github.com/animeshkundu/kusto-mcp
-```
+---
 
-Or run directly without installing:
+## Get Started
 
-```bash
-uvx --from git+https://github.com/animeshkundu/kusto-mcp kusto-mcp
-```
+> **One command. No config files, no credentials, no cluster URLs at startup.**
 
-## Quick Start
-
-### Claude Code
+<table>
+<tr><td><b>Claude Code</b></td>
+<td>
 
 ```bash
 claude mcp add kusto -- uvx --from git+https://github.com/animeshkundu/kusto-mcp kusto-mcp
 ```
 
-### Claude Desktop
+</td></tr>
+<tr><td><b>Claude Desktop</b></td>
+<td>
 
-Add to your `claude_desktop_config.json`:
-
+Add to `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
     "kusto": {
       "command": "uvx",
-      "args": [
-        "--from",
-        "git+https://github.com/animeshkundu/kusto-mcp",
-        "kusto-mcp"
-      ]
+      "args": ["--from", "git+https://github.com/animeshkundu/kusto-mcp", "kusto-mcp"]
     }
   }
 }
 ```
 
-That's it. No cluster URL, credentials, or tenant ID needed at startup — the LLM provides the cluster and database with each tool call, and authentication is handled automatically.
+</td></tr>
+<tr><td><b>pip</b></td>
+<td>
+
+```bash
+pip install git+https://github.com/animeshkundu/kusto-mcp
+```
+
+</td></tr>
+</table>
+
+## How It Works
+
+```
+You: "Show me the top 5 APIs by request count in the last hour"
+
+Claude ──► kusto-mcp ──► Azure Data Explorer
+                │
+                ├─ Authenticates automatically (Azure CLI or device code)
+                ├─ Caches connections per cluster
+                ├─ Returns structured JSON
+                └─ Includes schema hints if query fails
+```
+
+The LLM provides `cluster`, `database`, and `query` with each tool call. The server handles everything else — auth, connections, formatting, error recovery.
 
 ## Authentication
 
-Authentication happens automatically on the first tool call:
+Auth is automatic on the first tool call. No setup required.
 
-1. **Azure CLI** — silent if you've run `az login`
-2. **Device code flow** — if Azure CLI is unavailable, the server returns a device code and URL through the LLM, which asks you to authenticate in any browser
+| Method | When | How |
+|--------|------|-----|
+| **Azure CLI** | You've run `az login` | Silent, no interaction |
+| **Device code** | No CLI session | Server returns a code → LLM asks you to open a browser → done |
+| **Cached token** | After first auth | Persistent across restarts, valid ~90 days |
 
-Tokens are cached persistently across server restarts.
-
-For single-tenant scenarios, you can optionally pass a tenant hint:
-
-```bash
-kusto-mcp --tenant-id YOUR_TENANT_ID
-```
-
-Local ADX emulator clusters (`http://` URLs) require no authentication.
+For single-tenant scenarios: `kusto-mcp --tenant-id YOUR_TENANT_ID`
+<br>Local ADX emulator (`http://` URLs): no auth needed.
 
 ## Tools
 
-All tools accept `cluster` and `database` as required parameters.
+All tools require `cluster` and `database` parameters. The LLM provides these automatically.
 
 | Tool | Description |
 |------|-------------|
-| `list_internal_tables` | List all internal tables in the database |
-| `list_external_tables` | List all external tables in the database |
-| `list_materialized_views` | List all materialized views in the database |
-| `execute_query_internal_table` | Execute a KQL query on an internal table or materialized view |
-| `execute_query_external_table` | Execute a KQL query on an external table |
-| `retrieve_internal_table_schema` | Get the schema of an internal table or materialized view |
-| `retrieve_external_table_schema` | Get the schema of an external table |
+| `list_internal_tables` | List all internal tables |
+| `list_external_tables` | List all external tables |
+| `list_materialized_views` | List all materialized views |
+| `execute_query_internal_table` | Run KQL on internal tables / materialized views |
+| `execute_query_external_table` | Run KQL on external tables |
+| `retrieve_internal_table_schema` | Get schema of internal table / view |
+| `retrieve_external_table_schema` | Get schema of external table |
 
-## Features
+## Why kusto-mcp?
 
-- **Zero-config startup** — no CLI arguments required
-- **Multi-cluster** — connections cached per cluster URL
-- **Headless-friendly auth** — Azure CLI → device code flow chain with persistent token cache
-- **Schema hints on errors** — query failures include the table schema so the LLM can self-correct
-- **Structured JSON responses** — `row.to_dict()` output for LLM comprehension
-- **Query safety** — 3-minute timeouts and deferred partial query failures
+| Feature | Detail |
+|---------|--------|
+| **Zero config** | No CLI args. No env vars. Just start it. |
+| **Multi-cluster** | Query different clusters in the same session. Connections cached. |
+| **Headless auth** | Works on remote machines, SSH sessions, containers — anywhere without a browser. |
+| **Self-correcting** | Query errors include the table schema so the LLM fixes itself. |
+| **Structured output** | JSON with column names and typed values, not opaque strings. |
+| **Safe defaults** | 3-min timeouts, management command blocking, deferred partial failures. |
+
+## Releases
+
+Releases are **automatic**. When the `version` in `pyproject.toml` is bumped and pushed to `main`, CI creates a GitHub release with the built wheel and sdist attached.
+
+To release a new version:
+1. Bump `version` in `pyproject.toml`
+2. Push to `main`
+3. Done — CI handles the rest
 
 ## Development
 
-Requires Python 3.10+ and [uv](https://docs.astral.sh/uv/).
-
 ```bash
-# Install dependencies
-uv sync --dev
-
-# Run tests
-uv run pytest tests/ -v
-
-# Run the server locally
-uv run kusto-mcp
+git clone https://github.com/animeshkundu/kusto-mcp && cd kusto-mcp
+uv sync --dev        # install deps
+uv run pytest -v     # run tests
+uv run kusto-mcp     # start server
 ```
 
 ## License
