@@ -3,7 +3,18 @@ name = "kusto-mcp"
 version = "0.2.0"
 description = "A MCP server for Azure Data Explorer (Kusto) with zero-config headless authentication"
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.10"
+keywords = ["mcp", "kusto", "azure-data-explorer", "adx", "llm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
 dependencies = [
     "azure-kusto-data>=4.6.1",
     "azure-identity>=1.15.0",
@@ -14,8 +25,13 @@ dependencies = [
 name = "Animesh Kundu"
 email = "anik.edu@gmail.com"
 
+[project.urls]
+Homepage = "https://github.com/animeshkundu/kusto-mcp"
+Repository = "https://github.com/animeshkundu/kusto-mcp"
+Issues = "https://github.com/animeshkundu/kusto-mcp/issues"
+
 [build-system]
-requires = [ "hatchling",]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]

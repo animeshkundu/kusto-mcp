@@ -1,74 +1,103 @@
-## Kusto MCP Server
+# kusto-mcp
 
-A MCP server that provides access to Azure Data Explorer (ADX) clusters. Supports zero-config startup with automatic headless-friendly authentication.
+[![CI](https://github.com/animeshkundu/kusto-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/animeshkundu/kusto-mcp/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-### Tools
+A [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server for [Azure Data Explorer](https://learn.microsoft.com/en-us/azure/data-explorer/) (Kusto). Zero-config startup with automatic headless-friendly authentication.
 
-The following tools are provided by the server. All tools accept `cluster` and `database` as required parameters.
-
-- **list tables:**
-    - `list_internal_tables`: list all internal tables in the database
-    - `list_external_tables`: list all external tables in the database
-    - `list_materialized_views`: list all materialized views in the database
-- **execute query:**
-    - `execute_query_internal_table`: execute a KQL query on an internal table or materialized view
-    - `execute_query_external_table`: execute a KQL query on an external table
-- **get table schema:**
-    - `retrieve_internal_table_schema`: get the schema of an internal table or materialized view
-    - `retrieve_external_table_schema`: get the schema of an external table
-
-### Authentication
-
-The server supports automatic authentication with no configuration required.
-
-#### Default (recommended)
-
-Just start the server with no arguments. Authentication happens automatically on the first tool call:
-
-1. **Azure CLI** — if you have run `az login`, authentication is silent
-2. **Device code flow** — if Azure CLI is not available, the server returns a device code and URL. The LLM will ask you to open a browser and enter the code to authenticate.
-
-Tokens are cached persistently, so you only need to authenticate once across server restarts.
-
-#### Single-tenant hint
-
-If you need to target a specific Azure tenant:
+## Install
 
 ```bash
-kusto-mcp --tenant-id YOUR_TENANT_ID
+pip install kusto-mcp
 ```
+
+Or run directly with `uvx`:
+
+```bash
+uvx kusto-mcp
+```
+
+## Quick Start
 
 ### Claude Code
 
 ```bash
-claude mcp add kusto -- uvx --from git+https://github.com/animeshkundu/kusto-mcp kusto-mcp
+claude mcp add kusto -- uvx kusto-mcp
 ```
 
-### Claude Desktop configuration
+### Claude Desktop
+
+Add to your `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "kusto": {
       "command": "uvx",
-      "args": [
-        "--from",
-        "git+https://github.com/animeshkundu/kusto-mcp",
-        "kusto-mcp"
-      ]
+      "args": ["kusto-mcp"]
     }
   }
 }
 ```
 
-When using Azure Data Explorer emulator locally, no authentication is needed — just provide an `http://` cluster URL in your tool calls.
+That's it. No cluster URL, credentials, or tenant ID needed at startup — the LLM provides the cluster and database with each tool call, and authentication is handled automatically.
 
-### Features
+## Authentication
+
+Authentication happens automatically on the first tool call:
+
+1. **Azure CLI** — silent if you've run `az login`
+2. **Device code flow** — if Azure CLI is unavailable, the server returns a device code and URL through the LLM, which asks you to authenticate in any browser
+
+Tokens are cached persistently across server restarts.
+
+For single-tenant scenarios, you can optionally pass a tenant hint:
+
+```bash
+kusto-mcp --tenant-id YOUR_TENANT_ID
+```
+
+Local ADX emulator clusters (`http://` URLs) require no authentication.
+
+## Tools
+
+All tools accept `cluster` and `database` as required parameters.
+
+| Tool | Description |
+|------|-------------|
+| `list_internal_tables` | List all internal tables in the database |
+| `list_external_tables` | List all external tables in the database |
+| `list_materialized_views` | List all materialized views in the database |
+| `execute_query_internal_table` | Execute a KQL query on an internal table or materialized view |
+| `execute_query_external_table` | Execute a KQL query on an external table |
+| `retrieve_internal_table_schema` | Get the schema of an internal table or materialized view |
+| `retrieve_external_table_schema` | Get the schema of an external table |
+
+## Features
 
 - **Zero-config startup** — no CLI arguments required
-- **Multi-cluster** — the LLM provides the cluster URL with each tool call; connections are cached per cluster
-- **Headless-friendly auth** — device code flow works on remote/SSH machines
-- **Persistent token cache** — no re-authentication across server restarts
-- **Schema hints on errors** — when a query fails, the error response includes the table schema to help the LLM self-correct
-- **Structured JSON responses** — query results returned as structured JSON for better LLM comprehension
+- **Multi-cluster** — connections cached per cluster URL
+- **Headless-friendly auth** — Azure CLI → device code flow chain with persistent token cache
+- **Schema hints on errors** — query failures include the table schema so the LLM can self-correct
+- **Structured JSON responses** — `row.to_dict()` output for LLM comprehension
 - **Query safety** — 3-minute timeouts and deferred partial query failures
+
+## Development
+
+Requires Python 3.10+ and [uv](https://docs.astral.sh/uv/).
+
+```bash
+# Install dependencies
+uv sync --dev
+
+# Run tests
+uv run pytest tests/ -v
+
+# Run the server locally
+uv run kusto-mcp
+```
+
+## License
+
+[MIT](LICENSE)
