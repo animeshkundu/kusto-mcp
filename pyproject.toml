@@ -21,5 +21,8 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/mcp_server_kusto"]
 
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
 [project.scripts]
 kusto-mcp = "mcp_server_kusto:main"

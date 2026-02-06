@@ -202,26 +202,26 @@ async def main(tenant_id: str = None):
         ),
         types.Tool(
             name="execute_query_internal_table",
-            description="Execute a KQL query on an internal table or materialized view",
+            description="Execute a KQL query on an internal table or materialized view. Always use '| project' to select only the columns you need — tables can have many columns and returning all of them wastes context.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "cluster": cluster_prop,
                     "database": database_prop,
-                    "query": {"type": "string", "description": "KQL query to execute"},
+                    "query": {"type": "string", "description": "KQL query to execute. Use '| project col1, col2' to limit columns returned."},
                 },
                 "required": ["cluster", "database", "query"],
             },
         ),
         types.Tool(
             name="execute_query_external_table",
-            description="Execute a KQL query on an external table",
+            description="Execute a KQL query on an external table. Always use '| project' to select only the columns you need — tables can have many columns and returning all of them wastes context.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "cluster": cluster_prop,
                     "database": database_prop,
-                    "query": {"type": "string", "description": "KQL query to execute"},
+                    "query": {"type": "string", "description": "KQL query to execute. Use '| project col1, col2' to limit columns returned."},
                 },
                 "required": ["cluster", "database", "query"],
             },
