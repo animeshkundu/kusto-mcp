@@ -11,3 +11,16 @@ wheels/
 # Virtual environments
 .venv
 nul
+
+# Runtime logs (may contain sensitive debug output)
+logs/
+
+# Secrets and credentials — never commit these
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.cert
+*.crt
