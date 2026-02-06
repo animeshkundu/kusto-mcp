@@ -3,19 +3,20 @@
 [![CI](https://github.com/animeshkundu/kusto-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/animeshkundu/kusto-mcp/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://animeshkundu.github.io/kusto-mcp/)
 
 A [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server for [Azure Data Explorer](https://learn.microsoft.com/en-us/azure/data-explorer/) (Kusto). Zero-config startup with automatic headless-friendly authentication.
 
 ## Install
 
 ```bash
-pip install kusto-mcp
+pip install git+https://github.com/animeshkundu/kusto-mcp
 ```
 
-Or run directly with `uvx`:
+Or run directly without installing:
 
 ```bash
-uvx kusto-mcp
+uvx --from git+https://github.com/animeshkundu/kusto-mcp kusto-mcp
 ```
 
 ## Quick Start
@@ -23,7 +24,7 @@ uvx kusto-mcp
 ### Claude Code
 
 ```bash
-claude mcp add kusto -- uvx kusto-mcp
+claude mcp add kusto -- uvx --from git+https://github.com/animeshkundu/kusto-mcp kusto-mcp
 ```
 
 ### Claude Desktop
@@ -35,7 +36,11 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "kusto": {
       "command": "uvx",
-      "args": ["kusto-mcp"]
+      "args": [
+        "--from",
+        "git+https://github.com/animeshkundu/kusto-mcp",
+        "kusto-mcp"
+      ]
     }
   }
 }

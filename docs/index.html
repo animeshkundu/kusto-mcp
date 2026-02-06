@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>kusto-mcp — MCP Server for Azure Data Explorer</title>
+  <meta name="description" content="Zero-config MCP server for Azure Data Explorer (Kusto) with headless-friendly authentication. Query Kusto from Claude and other LLMs.">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --accent-hover: #79c0ff;
+      --green: #3fb950;
+      --purple: #bc8cff;
+      --code-bg: #1c2128;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-hover); text-decoration: underline; }
+    code {
+      background: var(--code-bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.9em;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      overflow-x: auto;
+      font-size: 0.875em;
+      line-height: 1.5;
+    }
+    pre code { background: none; padding: 0; }
+
+    /* Layout */
+    .hero {
+      text-align: center;
+      padding: 80px 24px 60px;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero h1 { font-size: 2.5em; font-weight: 700; margin-bottom: 16px; }
+    .hero h1 span { color: var(--accent); }
+    .hero p { font-size: 1.2em; color: var(--text-muted); max-width: 600px; margin: 0 auto 32px; }
+    .badges { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 32px; }
+    .badges img { height: 20px; }
+    .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      display: inline-block;
+      padding: 10px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.95em;
+      border: 1px solid var(--border);
+      transition: all 0.15s;
+    }
+    .btn-primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+    .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); text-decoration: none; }
+    .btn-secondary { background: var(--surface); color: var(--text); }
+    .btn-secondary:hover { border-color: var(--text-muted); text-decoration: none; }
+
+    .container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+    section { padding: 60px 0; border-bottom: 1px solid var(--border); }
+    section:last-child { border-bottom: none; }
+    section h2 { font-size: 1.8em; margin-bottom: 24px; }
+    section h3 { font-size: 1.1em; margin-bottom: 8px; color: var(--accent); }
+
+    /* Quick start */
+    .quickstart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .quickstart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+    }
+    .quickstart-card h3 { margin-bottom: 12px; }
+
+    /* Feature grid */
+    .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .feature {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .feature h3 { color: var(--green); margin-bottom: 6px; }
+    .feature p { color: var(--text-muted); font-size: 0.95em; }
+
+    /* Auth flow */
+    .auth-steps { list-style: none; counter-reset: step; }
+    .auth-steps li {
+      counter-increment: step;
+      padding: 16px 16px 16px 56px;
+      position: relative;
+      margin-bottom: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .auth-steps li::before {
+      content: counter(step);
+      position: absolute;
+      left: 16px;
+      top: 16px;
+      width: 28px;
+      height: 28px;
+      background: var(--accent);
+      color: var(--bg);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.85em;
+    }
+    .auth-steps li strong { color: var(--text); }
+
+    /* Tools table */
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+    th { color: var(--text-muted); font-weight: 600; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.05em; }
+    td code { color: var(--purple); }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 40px 24px;
+      color: var(--text-muted);
+      font-size: 0.9em;
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .quickstart-grid, .feature-grid { grid-template-columns: 1fr; }
+      .hero h1 { font-size: 1.8em; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="hero">
+  <h1><span>kusto</span>-mcp</h1>
+  <p>A Model Context Protocol server for Azure Data Explorer. Zero config. Headless auth. Multi-cluster.</p>
+  <div class="badges">
+    <a href="https://github.com/animeshkundu/kusto-mcp/actions/workflows/ci.yml"><img src="https://github.com/animeshkundu/kusto-mcp/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+    <img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python 3.10+">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License">
+  </div>
+  <div class="hero-actions">
+    <a href="https://github.com/animeshkundu/kusto-mcp" class="btn btn-primary">View on GitHub</a>
+    <a href="#quickstart" class="btn btn-secondary">Get Started</a>
+  </div>
+</div>
+
+<div class="container">
+
+  <section id="quickstart">
+    <h2>Quick Start</h2>
+    <div class="quickstart-grid">
+      <div class="quickstart-card">
+        <h3>Claude Code</h3>
+        <pre><code>claude mcp add kusto -- uvx kusto-mcp</code></pre>
+      </div>
+      <div class="quickstart-card">
+        <h3>Claude Desktop</h3>
+        <p style="margin-bottom:12px;color:var(--text-muted)">Add to <code>claude_desktop_config.json</code>:</p>
+        <pre><code>{
+  "mcpServers": {
+    "kusto": {
+      "command": "uvx",
+      "args": ["kusto-mcp"]
+    }
+  }
+}</code></pre>
+      </div>
+    </div>
+    <p style="margin-top:20px;color:var(--text-muted)">That's it. No cluster URL, credentials, or tenant ID needed at startup. The LLM provides the cluster and database with each tool call.</p>
+  </section>
+
+  <section id="auth">
+    <h2>Authentication</h2>
+    <p style="margin-bottom:20px;color:var(--text-muted)">Auth happens automatically on the first tool call. Tokens are cached persistently across server restarts.</p>
+    <ol class="auth-steps">
+      <li><strong>Azure CLI</strong> — silent if you've run <code>az login</code></li>
+      <li><strong>Device code flow</strong> — the server returns a code and URL through the LLM, which asks you to authenticate in any browser. Works on headless/SSH machines.</li>
+      <li><strong>Cached</strong> — subsequent calls and restarts use the persistent token cache. No re-auth needed.</li>
+    </ol>
+  </section>
+
+  <section id="tools">
+    <h2>Tools</h2>
+    <p style="margin-bottom:20px;color:var(--text-muted)">All tools accept <code>cluster</code> and <code>database</code> as required parameters.</p>
+    <table>
+      <thead><tr><th>Tool</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>list_internal_tables</code></td><td>List all internal tables in the database</td></tr>
+        <tr><td><code>list_external_tables</code></td><td>List all external tables in the database</td></tr>
+        <tr><td><code>list_materialized_views</code></td><td>List all materialized views in the database</td></tr>
+        <tr><td><code>execute_query_internal_table</code></td><td>Execute a KQL query on an internal table or materialized view</td></tr>
+        <tr><td><code>execute_query_external_table</code></td><td>Execute a KQL query on an external table</td></tr>
+        <tr><td><code>retrieve_internal_table_schema</code></td><td>Get the schema of an internal table or materialized view</td></tr>
+        <tr><td><code>retrieve_external_table_schema</code></td><td>Get the schema of an external table</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="features">
+    <h2>Features</h2>
+    <div class="feature-grid">
+      <div class="feature">
+        <h3>Zero Config</h3>
+        <p>No CLI arguments required. Start the server and go.</p>
+      </div>
+      <div class="feature">
+        <h3>Multi-Cluster</h3>
+        <p>Query different ADX clusters in the same session. Connections cached per cluster.</p>
+      </div>
+      <div class="feature">
+        <h3>Headless Auth</h3>
+        <p>Azure CLI &rarr; device code chain. Works on remote/SSH machines without a browser.</p>
+      </div>
+      <div class="feature">
+        <h3>Token Caching</h3>
+        <p>Persistent cache across restarts. Authenticate once, query forever.</p>
+      </div>
+      <div class="feature">
+        <h3>Schema Hints</h3>
+        <p>Query failures include the table schema so the LLM can self-correct without extra round trips.</p>
+      </div>
+      <div class="feature">
+        <h3>Query Safety</h3>
+        <p>3-minute timeouts, management command blocking, and deferred partial query failures.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <h2>Install</h2>
+    <h3>From GitHub Release</h3>
+    <pre><code>pip install https://github.com/animeshkundu/kusto-mcp/releases/latest/download/kusto_mcp-0.2.0-py3-none-any.whl</code></pre>
+    <h3 style="margin-top:20px">From Source</h3>
+    <pre><code>pip install git+https://github.com/animeshkundu/kusto-mcp</code></pre>
+    <h3 style="margin-top:20px">With uvx (no install needed)</h3>
+    <pre><code>uvx kusto-mcp</code></pre>
+    <h3 style="margin-top:20px">Development</h3>
+    <pre><code>git clone https://github.com/animeshkundu/kusto-mcp
+cd kusto-mcp
+uv sync --dev
+uv run pytest tests/ -v</code></pre>
+  </section>
+
+</div>
+
+<footer>
+  <p>Built by <a href="https://github.com/animeshkundu">Animesh Kundu</a> &middot; <a href="https://github.com/animeshkundu/kusto-mcp">GitHub</a> &middot; MIT License</p>
+</footer>
+
+</body>
+</html>
