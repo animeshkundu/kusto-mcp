@@ -119,7 +119,7 @@ class KustoDatabase:
         query = query.strip()
         if not query or query.startswith("."):
             return ""
-        match = re.match(r"external_table\((['\"])(.+?)\1", query)
+        match = re.match(r"external_table\((['\"])(.*?)(?<!\\)\1", query)
         if match:
             return match.group(2)
         return query.split("|")[0].strip()
@@ -227,7 +227,7 @@ class KustoDatabase:
                 )
             msg = f"Query failed: {e}"
             if hint:
-                msg += f"\n\n{hint}"
+                msg += f"\n\n{hint}\n\nPlease fix the query and retry."
             if table_hint:
                 msg += f"\n\n{table_hint}"
             return msg
@@ -241,11 +241,14 @@ class KustoDatabase:
         try:
             client = self._get_client(cluster)
             table_name = query.split("|")[0].strip()
-            if table_name and " " not in table_name:
-                if not table_name.startswith("external_table("):
-                    query = query.replace(
-                        table_name, f'external_table("{table_name}")', 1
-                    )
+            if (
+                table_name
+                and " " not in table_name
+                and not table_name.startswith("external_table(")
+            ):
+                query = query.replace(
+                    table_name, f'external_table("{table_name}")', 1
+                )
             properties = _make_request_properties()
             response = client.execute(database, query, properties)
             return _format_results(response.primary_results[0])
@@ -287,7 +290,12 @@ class KustoDatabase:
         )
         if resolved_kind == "external":
             return self.execute_query_external_table(cluster, database, query)
-        return self.execute_query_internal_table(cluster, database, query)
+        if resolved_kind in {"internal", "materialized_view"}:
+            return self.execute_query_internal_table(cluster, database, query)
+        raise ValueError(
+            f"table_kind '{resolved_kind}' is not valid here. "
+            f"Allowed values: {', '.join(sorted(_QUERY_TABLE_KINDS))}."
+        )
 
     def retrieve_table_schema(
         self,
