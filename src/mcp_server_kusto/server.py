@@ -1,4 +1,3 @@
-import ast
 import json
 import logging
 import os
@@ -116,20 +115,39 @@ class KustoDatabase:
             logger.debug(f"Could not fetch schema hint: {schema_err}")
             return ""
 
+    def _parse_external_table_name(self, query: str) -> str:
+        prefix = "external_table("
+        if not query.lower().startswith(prefix):
+            return ""
+        rest = query[len(prefix) :].lstrip()
+        if not rest:
+            return ""
+        quote = rest[0]
+        if quote not in {"'", '"'}:
+            return ""
+        name_chars: list[str] = []
+        escaped = False
+        for ch in rest[1:]:
+            if escaped:
+                name_chars.append(ch)
+                escaped = False
+                continue
+            if ch == "\\":
+                escaped = True
+                continue
+            if ch == quote:
+                return "".join(name_chars)
+            name_chars.append(ch)
+        return ""
+
     def _extract_table_name(self, query: str) -> str:
         """Extract the leading table name or external_table("...") argument."""
         query = query.strip()
         if not query or query.startswith("."):
             return ""
-        match = re.match(
-            r"external_table\(\s*(['\"])((?:\\.|(?!\1).)*)\1", query
-        )
-        if match:
-            literal = f"{match.group(1)}{match.group(2)}{match.group(1)}"
-            try:
-                return ast.literal_eval(literal)
-            except (SyntaxError, ValueError):
-                return match.group(2)
+        external_name = self._parse_external_table_name(query)
+        if external_name:
+            return external_name
         return query.split("|")[0].strip()
 
     def _get_table_names(
@@ -145,9 +163,15 @@ class KustoDatabase:
             return []
 
     def _table_kind_hint(
-        self, cluster: str, database: str, query: str, expected_kind: str
+        self,
+        cluster: str,
+        database: str,
+        reference: str,
+        expected_kind: str,
+        *,
+        is_table_name: bool = False,
     ) -> str:
-        table_name = self._extract_table_name(query)
+        table_name = reference if is_table_name else self._extract_table_name(reference)
         if not table_name:
             return ""
         if expected_kind == "internal":
@@ -249,17 +273,20 @@ class KustoDatabase:
         try:
             client = self._get_client(cluster)
             table_name = self._extract_table_name(query)
+            stripped_query = query.lstrip()
             if (
                 table_name
                 and " " not in table_name
-                and not query.lstrip().lower().startswith("external_table(")
+                and not stripped_query.lower().startswith("external_table(")
             ):
-                query = re.sub(
-                    rf"^\s*{re.escape(table_name)}",
+                leading_ws = query[: len(query) - len(stripped_query)]
+                rewritten = re.sub(
+                    rf"^{re.escape(table_name)}",
                     f'external_table("{table_name}")',
-                    query,
+                    stripped_query,
                     count=1,
                 )
+                query = f"{leading_ws}{rewritten}"
             properties = _make_request_properties()
             response = client.execute(database, query, properties)
             return _format_results(response.primary_results[0])
@@ -322,10 +349,19 @@ class KustoDatabase:
         try:
             if resolved_kind == "external":
                 return self.retrieve_external_table_schema(cluster, database, table)
-            return self.retrieve_internal_table_schema(cluster, database, table)
+            if resolved_kind in {"internal", "materialized_view"}:
+                return self.retrieve_internal_table_schema(cluster, database, table)
+            raise ValueError(
+                f"table_kind '{resolved_kind}' is not valid here. "
+                f"Allowed values: {', '.join(sorted(_QUERY_TABLE_KINDS))}."
+            )
         except KustoServiceError as e:
             table_hint = self._table_kind_hint(
-                cluster, database, table, expected_kind=resolved_kind
+                cluster,
+                database,
+                table,
+                expected_kind=resolved_kind,
+                is_table_name=True,
             )
             msg = f"Schema lookup failed: {e}"
             if table_hint:

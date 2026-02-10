@@ -170,6 +170,25 @@ class TestKustoDatabase:
             "materialized_views": ["View1"],
         }
 
+    def test_list_tables_all_empty(self):
+        cred = MagicMock()
+        db = KustoDatabase(cred)
+        with patch.object(
+            db, "list_internal_tables", return_value=json.dumps([])
+        ), patch.object(
+            db, "list_external_tables", return_value=json.dumps([])
+        ), patch.object(
+            db, "list_materialized_views", return_value=json.dumps([])
+        ):
+            result = db.list_tables("https://cluster.kusto.windows.net", "mydb")
+
+        parsed = json.loads(result)
+        assert parsed == {
+            "internal_tables": [],
+            "external_tables": [],
+            "materialized_views": [],
+        }
+
     def test_execute_query_rejects_management_commands(self):
         cred = MagicMock()
         db = KustoDatabase(cred)
