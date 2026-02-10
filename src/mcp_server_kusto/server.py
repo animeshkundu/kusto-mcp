@@ -117,6 +117,7 @@ class KustoDatabase:
             return ""
 
     def _extract_table_name(self, query: str) -> str:
+        """Extract the leading table name or external_table("...") argument."""
         query = query.strip()
         if not query or query.startswith("."):
             return ""
@@ -247,14 +248,17 @@ class KustoDatabase:
             raise ValueError("Should not use management commands")
         try:
             client = self._get_client(cluster)
-            table_name = query.split("|")[0].strip()
+            table_name = self._extract_table_name(query)
             if (
                 table_name
                 and " " not in table_name
-                and not table_name.lower().startswith("external_table(")
+                and not query.lstrip().lower().startswith("external_table(")
             ):
-                query = query.replace(
-                    table_name, f'external_table("{table_name}")', 1
+                query = re.sub(
+                    rf"^\s*{re.escape(table_name)}",
+                    f'external_table("{table_name}")',
+                    query,
+                    count=1,
                 )
             properties = _make_request_properties()
             response = client.execute(database, query, properties)
