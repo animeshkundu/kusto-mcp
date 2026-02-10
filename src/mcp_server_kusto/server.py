@@ -1,3 +1,4 @@
+import ast
 import json
 import logging
 import os
@@ -119,9 +120,15 @@ class KustoDatabase:
         query = query.strip()
         if not query or query.startswith("."):
             return ""
-        match = re.match(r"external_table\((['\"])(.*?)(?<!\\)\1", query)
+        match = re.match(
+            r"external_table\(\s*(['\"])((?:\\.|(?!\1).)*)\1", query
+        )
         if match:
-            return match.group(2)
+            literal = f"{match.group(1)}{match.group(2)}{match.group(1)}"
+            try:
+                return ast.literal_eval(literal)
+            except (SyntaxError, ValueError):
+                return match.group(2)
         return query.split("|")[0].strip()
 
     def _get_table_names(
@@ -244,7 +251,7 @@ class KustoDatabase:
             if (
                 table_name
                 and " " not in table_name
-                and not table_name.startswith("external_table(")
+                and not table_name.lower().startswith("external_table(")
             ):
                 query = query.replace(
                     table_name, f'external_table("{table_name}")', 1
@@ -285,6 +292,7 @@ class KustoDatabase:
         query: str,
         table_kind: str | None = None,
     ) -> str:
+        """Execute a query; materialized views follow the internal-table path."""
         resolved_kind = _normalize_table_kind(
             table_kind, default="internal", allowed=_QUERY_TABLE_KINDS
         )
