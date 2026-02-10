@@ -202,16 +202,13 @@
   <section id="tools">
     <h2>Tools</h2>
     <p style="margin-bottom:20px;color:var(--text-muted)">All tools accept <code>cluster</code> and <code>database</code> as required parameters.</p>
+    <p style="margin-bottom:20px;color:var(--text-muted)">Internal tables are ingested into the cluster. External tables reference data stored outside the cluster and are queried via <code>external_table()</code>. Materialized views are queried like internal tables.</p>
     <table>
       <thead><tr><th>Tool</th><th>Description</th></tr></thead>
       <tbody>
-        <tr><td><code>list_internal_tables</code></td><td>List all internal tables in the database</td></tr>
-        <tr><td><code>list_external_tables</code></td><td>List all external tables in the database</td></tr>
-        <tr><td><code>list_materialized_views</code></td><td>List all materialized views in the database</td></tr>
-        <tr><td><code>execute_query_internal_table</code></td><td>Execute a KQL query on an internal table or materialized view</td></tr>
-        <tr><td><code>execute_query_external_table</code></td><td>Execute a KQL query on an external table</td></tr>
-        <tr><td><code>retrieve_internal_table_schema</code></td><td>Get the schema of an internal table or materialized view</td></tr>
-        <tr><td><code>retrieve_external_table_schema</code></td><td>Get the schema of an external table</td></tr>
+        <tr><td><code>list_tables</code></td><td>List tables by kind (<code>internal</code>, <code>external</code>, <code>materialized_view</code>, or <code>all</code>)</td></tr>
+        <tr><td><code>execute_query</code></td><td>Run KQL; set <code>table_kind='external'</code> for external tables</td></tr>
+        <tr><td><code>retrieve_table_schema</code></td><td>Get table schema; set <code>table_kind='external'</code> for external tables</td></tr>
       </tbody>
     </table>
   </section>

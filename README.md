@@ -88,15 +88,13 @@ For single-tenant scenarios: `kusto-mcp --tenant-id YOUR_TENANT_ID`
 
 All tools require `cluster` and `database` parameters. The LLM provides these automatically.
 
+Table kinds follow Kusto semantics: internal tables are ingested into the cluster, while external tables reference data stored outside the cluster and are queried via `external_table()` with their own `.show external tables` metadata commands. Materialized views are queried like internal tables.
+
 | Tool | Description |
 |------|-------------|
-| `list_internal_tables` | List all internal tables |
-| `list_external_tables` | List all external tables |
-| `list_materialized_views` | List all materialized views |
-| `execute_query_internal_table` | Run KQL on internal tables / materialized views |
-| `execute_query_external_table` | Run KQL on external tables |
-| `retrieve_internal_table_schema` | Get schema of internal table / view |
-| `retrieve_external_table_schema` | Get schema of external table |
+| `list_tables` | List tables by kind (`internal`, `external`, `materialized_view`, or `all`) |
+| `execute_query` | Run KQL; set `table_kind='external'` for external tables |
+| `retrieve_table_schema` | Get table schema; set `table_kind='external'` for external tables |
 
 ## Why kusto-mcp?
 
