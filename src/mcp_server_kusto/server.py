@@ -117,7 +117,8 @@ class KustoDatabase:
 
     def _parse_external_table_name(self, query: str) -> str:
         prefix = "external_table("
-        if not query.lower().startswith(prefix):
+        lower_query = query.lower()
+        if not lower_query.startswith(prefix):
             return ""
         rest = query[len(prefix) :].lstrip()
         if not rest:
@@ -285,17 +286,24 @@ class KustoDatabase:
             client = self._get_client(cluster)
             table_name = self._extract_table_name(query)
             stripped_query = query.lstrip()
+            prefix_segment = stripped_query.split("|")[0].strip()
             if (
                 table_name
-                and " " not in table_name
+                and prefix_segment
                 and not stripped_query.lower().startswith("external_table(")
+                and (
+                    " " not in prefix_segment
+                    or (prefix_segment.startswith("[") and prefix_segment.endswith("]"))
+                )
             ):
                 leading_whitespace = query[: len(query) - len(stripped_query)]
                 escaped_table_name = (
-                    table_name.replace("\\", "\\\\").replace('"', '\\"')
+                    table_name.replace("\\", "\\\\")
+                    .replace('"', '\\"')
+                    .replace("'", "\\'")
                 )
                 rewritten = re.sub(
-                    rf"^{re.escape(table_name)}",
+                    rf"^{re.escape(prefix_segment)}",
                     f'external_table("{escaped_table_name}")',
                     stripped_query,
                     count=1,
