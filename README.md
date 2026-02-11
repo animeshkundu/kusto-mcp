@@ -88,15 +88,28 @@ For single-tenant scenarios: `kusto-mcp --tenant-id YOUR_TENANT_ID`
 
 All tools require `cluster` and `database` parameters. The LLM provides these automatically.
 
+Table kinds follow Kusto semantics: internal tables are ingested into the cluster, while external tables reference data stored outside the cluster and are queried via `external_table()` with their own `.show external tables` metadata commands. Materialized views are queried like internal tables.
+
+KQL identifiers with spaces or special characters must be referenced using bracket quoting such as `['table-name']` or `["table name"]`. For external tables, use bracket-quoted identifiers (for example, `['table-name']`), and the server will wrap them in `external_table("table-name")`.
+
+When `table_kind='external'`, the server rewrites the leading table reference and any direct `join`/`union` table tokens. For subqueries or let bindings, use `external_table()` explicitly.
+
 | Tool | Description |
 |------|-------------|
-| `list_internal_tables` | List all internal tables |
-| `list_external_tables` | List all external tables |
-| `list_materialized_views` | List all materialized views |
-| `execute_query_internal_table` | Run KQL on internal tables / materialized views |
-| `execute_query_external_table` | Run KQL on external tables |
-| `retrieve_internal_table_schema` | Get schema of internal table / view |
-| `retrieve_external_table_schema` | Get schema of external table |
+| `list_tables` | List tables by kind (`internal`, `external`, `materialized_view`, or `all`) |
+| `execute_query` | Run KQL; set `table_kind='external'` for external tables |
+| `retrieve_table_schema` | Get table schema; set `table_kind='external'` for external tables |
+
+## KQL Coverage Plan
+
+We are growing coverage of KQL query shapes based on the official KQL reference. The current plan is:
+
+1. Table reference forms (plain identifiers, bracket-quoted identifiers, and `external_table()`).
+2. Common query operators (`where`, `project`, `summarize`, `join`, `union`).
+3. Function and multi-statement forms (`let`, `datatable`, `database()`/`cluster()` references). Today, the rewrite only applies to leading table references, so `let` bindings are not rewritten.
+4. Failure coverage (management command rejection, unknown identifiers, schema hints).
+
+Each phase adds data-driven tests that validate the exact query text the MCP sends to Kusto.
 
 ## Why kusto-mcp?
 

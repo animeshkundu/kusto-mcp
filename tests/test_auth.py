@@ -55,7 +55,7 @@ class TestBuildKcsb:
         kcsb = build_kcsb("https://mycluster.eastus.kusto.windows.net", cred)
         assert kcsb is not None
         # The token provider should be set (will be called by KustoClient later)
-        assert kcsb._token_provider is not None
+        assert kcsb.token_provider is not None
 
     def test_https_token_provider_calls_credential(self):
         mock_token = MagicMock()
@@ -64,7 +64,7 @@ class TestBuildKcsb:
         cred.get_token.return_value = mock_token
 
         kcsb = build_kcsb("https://mycluster.eastus.kusto.windows.net", cred)
-        result = kcsb._token_provider()
+        result = kcsb.token_provider()
         assert result == "test-token-123"
         cred.get_token.assert_called_once()
 

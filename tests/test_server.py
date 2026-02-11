@@ -151,12 +151,62 @@ class TestKustoDatabase:
         parsed = json.loads(result)
         assert parsed == ["View1"]
 
+    def test_list_tables_all(self):
+        cred = MagicMock()
+        db = KustoDatabase(cred)
+        with patch.object(
+            db, "list_internal_tables", return_value=json.dumps(["Table1"])
+        ), patch.object(
+            db, "list_external_tables", return_value=json.dumps(["ExtTable"])
+        ), patch.object(
+            db, "list_materialized_views", return_value=json.dumps(["View1"])
+        ):
+            result = db.list_tables("https://cluster.kusto.windows.net", "mydb")
+
+        parsed = json.loads(result)
+        assert parsed == {
+            "internal_tables": ["Table1"],
+            "external_tables": ["ExtTable"],
+            "materialized_views": ["View1"],
+        }
+
+    def test_list_tables_all_empty(self):
+        cred = MagicMock()
+        db = KustoDatabase(cred)
+        with patch.object(
+            db, "list_internal_tables", return_value=json.dumps([])
+        ), patch.object(
+            db, "list_external_tables", return_value=json.dumps([])
+        ), patch.object(
+            db, "list_materialized_views", return_value=json.dumps([])
+        ):
+            result = db.list_tables("https://cluster.kusto.windows.net", "mydb")
+
+        parsed = json.loads(result)
+        assert parsed == {
+            "internal_tables": [],
+            "external_tables": [],
+            "materialized_views": [],
+        }
+
     def test_execute_query_rejects_management_commands(self):
         cred = MagicMock()
         db = KustoDatabase(cred)
         with pytest.raises(ValueError, match="management commands"):
             db.execute_query_internal_table(
                 "https://cluster.kusto.windows.net", "mydb", ".show tables"
+            )
+
+    def test_execute_query_rejects_whitespace_management_commands(self):
+        cred = MagicMock()
+        db = KustoDatabase(cred)
+        with pytest.raises(ValueError, match="management commands"):
+            db.execute_query_internal_table(
+                "https://cluster.kusto.windows.net", "mydb", "   .show tables"
+            )
+        with pytest.raises(ValueError, match="management commands"):
+            db.execute_query_internal_table(
+                "https://cluster.kusto.windows.net", "mydb", "\t.show tables"
             )
 
     def test_execute_external_query_rejects_management_commands(self):
@@ -242,6 +292,33 @@ class TestKustoDatabase:
 
     @patch("mcp_server_kusto.server.KustoClient")
     @patch("mcp_server_kusto.server.build_kcsb")
+    def test_execute_query_internal_table_hint_for_external_table(
+        self, mock_build, mock_client_cls
+    ):
+        from azure.kusto.data.exceptions import KustoServiceError
+
+        mock_client = MagicMock()
+        mock_client.execute.side_effect = KustoServiceError(
+            "Table not found", mock_client
+        )
+        mock_client_cls.return_value = mock_client
+
+        cred = MagicMock()
+        db = KustoDatabase(cred)
+
+        with patch.object(db, "_try_get_schema_hint", return_value=""), patch.object(
+            db,
+            "list_external_tables",
+            return_value=json.dumps(["ExtTable"]),
+        ):
+            result = db.execute_query_internal_table(
+                "https://cluster.kusto.windows.net", "mydb", "ExtTable | count"
+            )
+
+        assert "table_kind='external'" in result
+
+    @patch("mcp_server_kusto.server.KustoClient")
+    @patch("mcp_server_kusto.server.build_kcsb")
     def test_execute_query_external_table_wraps_name(
         self, mock_build, mock_client_cls
     ):
@@ -272,6 +349,62 @@ class TestKustoDatabase:
         call_args = mock_client.execute.call_args
         query_sent = call_args[0][1]
         assert 'external_table("ExtTable")' in query_sent
+
+    @patch("mcp_server_kusto.server.KustoClient")
+    @patch("mcp_server_kusto.server.build_kcsb")
+    def test_execute_query_external_table_preserves_existing_call(
+        self, mock_build, mock_client_cls
+    ):
+        result_table = MagicMock()
+        result_table.columns = []
+        result_table.__iter__ = MagicMock(return_value=iter([]))
+
+        mock_response = MagicMock()
+        mock_response.primary_results = [result_table]
+
+        mock_client = MagicMock()
+        mock_client.execute.return_value = mock_response
+        mock_client_cls.return_value = mock_client
+
+        cred = MagicMock()
+        db = KustoDatabase(cred)
+        db.execute_query_external_table(
+            "https://cluster.kusto.windows.net",
+            "mydb",
+            'external_table("ExtTable") | take 1',
+        )
+
+        call_args = mock_client.execute.call_args
+        query_sent = call_args[0][1]
+        assert query_sent.startswith('external_table("ExtTable")')
+
+    @patch("mcp_server_kusto.server.KustoClient")
+    @patch("mcp_server_kusto.server.build_kcsb")
+    def test_execute_query_external_table_bracketed_name(
+        self, mock_build, mock_client_cls
+    ):
+        result_table = MagicMock()
+        result_table.columns = []
+        result_table.__iter__ = MagicMock(return_value=iter([]))
+
+        mock_response = MagicMock()
+        mock_response.primary_results = [result_table]
+
+        mock_client = MagicMock()
+        mock_client.execute.return_value = mock_response
+        mock_client_cls.return_value = mock_client
+
+        cred = MagicMock()
+        db = KustoDatabase(cred)
+        db.execute_query_external_table(
+            "https://cluster.kusto.windows.net",
+            "mydb",
+            '["Ext Table"] | take 1',
+        )
+
+        call_args = mock_client.execute.call_args
+        query_sent = call_args[0][1]
+        assert 'external_table("Ext Table")' in query_sent
 
     @patch("mcp_server_kusto.server.KustoClient")
     @patch("mcp_server_kusto.server.build_kcsb")
