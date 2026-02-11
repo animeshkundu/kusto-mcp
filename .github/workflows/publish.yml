@@ -9,6 +9,7 @@ permissions:
 
 jobs:
   release:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
 
     steps:
@@ -20,36 +21,55 @@ jobs:
         with:
           version: "latest"
 
-      - name: Get version from pyproject.toml
+      - name: Bump version
         id: version
         run: |
-          VERSION=$(python -c "import re; print(re.search(r'version\s*=\s*\"(.+?)\"', open('pyproject.toml').read()).group(1))")
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
 
-      - name: Check if release already exists
-        id: check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if gh release view "v${{ steps.version.outputs.version }}" > /dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
+          path = Path("pyproject.toml")
+          data = path.read_text()
+          match = re.search(r'^version\s*=\s*"([^"]+)"', data, re.M)
+          if not match:
+              raise SystemExit("Version not found in pyproject.toml")
+          current = match.group(1)
+          parts = current.split(".")
+          if len(parts) != 3 or not all(part.isdigit() for part in parts):
+              raise SystemExit(f"Unsupported version format: {current}")
+          major, minor, patch = map(int, parts)
+          new_version = f"{major}.{minor}.{patch + 1}"
+          updated = re.sub(
+              r'^version\s*=\s*"[^"]+"',
+              f'version = "{new_version}"',
+              data,
+              count=1,
+              flags=re.M,
+          )
+          path.write_text(updated)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"version={new_version}\n")
+              output.write(f"tag=v{new_version}\n")
+          PY
 
       - name: Install and test
-        if: steps.check.outputs.exists == 'false'
         run: |
           uv sync --dev
-          uv run pytest tests/ -v
+          uv run pytest -v
 
       - name: Build package
-        if: steps.check.outputs.exists == 'false'
         run: uv build
 
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml
+          git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
+          git push
+
       - name: Create release
-        if: steps.check.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
