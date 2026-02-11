@@ -127,19 +127,25 @@ class KustoDatabase:
         if quote not in {"'", '"'}:
             return ""
         name_chars: list[str] = []
+        escape_char = "\\"
         escaped = False
         for ch in rest[1:]:
             if escaped:
                 name_chars.append(ch)
                 escaped = False
                 continue
-            if ch == "\\":
+            if ch == escape_char:
                 escaped = True
                 continue
             if ch == quote:
                 return "".join(name_chars)
             name_chars.append(ch)
         return ""
+
+    def _escape_external_table_name(self, table_name: str) -> str:
+        return (
+            table_name.replace("\\", "\\\\").replace('"', '\\"').replace("'", "\\'")
+        )
 
     def _extract_table_name(self, query: str) -> str:
         """Extract the leading table name or external_table("...") argument."""
@@ -215,22 +221,24 @@ class KustoDatabase:
         resolved_kind = _normalize_table_kind(
             table_kind, default="all", allowed=_LIST_TABLE_KINDS
         )
+        if resolved_kind == "all":
+            internal_tables = json.loads(self.list_internal_tables(cluster, database))
+            external_tables = json.loads(self.list_external_tables(cluster, database))
+            materialized_views = json.loads(
+                self.list_materialized_views(cluster, database)
+            )
+            return json.dumps(
+                {
+                    "internal_tables": internal_tables,
+                    "external_tables": external_tables,
+                    "materialized_views": materialized_views,
+                }
+            )
         if resolved_kind == "internal":
             return self.list_internal_tables(cluster, database)
         if resolved_kind == "external":
             return self.list_external_tables(cluster, database)
-        if resolved_kind == "materialized_view":
-            return self.list_materialized_views(cluster, database)
-        internal_tables = json.loads(self.list_internal_tables(cluster, database))
-        external_tables = json.loads(self.list_external_tables(cluster, database))
-        materialized_views = json.loads(self.list_materialized_views(cluster, database))
-        return json.dumps(
-            {
-                "internal_tables": internal_tables,
-                "external_tables": external_tables,
-                "materialized_views": materialized_views,
-            }
-        )
+        return self.list_materialized_views(cluster, database)
 
     def list_internal_tables(self, cluster: str, database: str) -> str:
         client = self._get_client(cluster)
@@ -297,11 +305,7 @@ class KustoDatabase:
                 )
             ):
                 leading_whitespace = query[: len(query) - len(stripped_query)]
-                escaped_table_name = (
-                    table_name.replace("\\", "\\\\")
-                    .replace('"', '\\"')
-                    .replace("'", "\\'")
-                )
+                escaped_table_name = self._escape_external_table_name(table_name)
                 rewritten = re.sub(
                     rf"^{re.escape(prefix_segment)}",
                     f'external_table("{escaped_table_name}")',
