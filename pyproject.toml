@@ -1,6 +1,6 @@
 [project]
 name = "kusto-mcp"
-version = "0.2.0"
+version = "0.2.1"
 description = "A MCP server for Azure Data Explorer (Kusto) with zero-config headless authentication"
 readme = "README.md"
 license = "MIT"
