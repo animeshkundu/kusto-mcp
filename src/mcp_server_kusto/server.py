@@ -141,7 +141,7 @@ class KustoDatabase:
                 return "".join(name_chars)
             name_chars.append(ch)
         if escaped:
-            name_chars.append(escape_char)
+            return ""
         return "".join(name_chars)
 
     def _escape_external_table_name(self, table_name: str) -> str:
@@ -161,12 +161,10 @@ class KustoDatabase:
             end = query.find("]")
             if end != -1:
                 content = query[1:end].strip()
-                if (
-                    len(content) >= 2
-                    and content[0] in {"'", '"'}
-                    and content[0] == content[-1]
-                ):
-                    return content[1:-1]
+                if content.startswith(("'", '"')):
+                    if len(content) >= 2 and content[0] == content[-1]:
+                        return content[1:-1]
+                    return ""
                 return content
         segment = query.split("|")[0].strip()
         if re.match(r"^[A-Za-z_][\w.]*$", segment):
@@ -309,7 +307,8 @@ class KustoDatabase:
                     or (prefix_segment.startswith("[") and prefix_segment.endswith("]"))
                 )
             ):
-                leading_whitespace = query[: len(query) - len(stripped_query)]
+                leading_length = len(query) - len(stripped_query)
+                leading_whitespace = query[:leading_length]
                 escaped_table_name = self._escape_external_table_name(table_name)
                 rewritten = (
                     f'external_table("{escaped_table_name}")'
