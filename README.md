@@ -90,7 +90,7 @@ All tools require `cluster` and `database` parameters. The LLM provides these au
 
 Table kinds follow Kusto semantics: internal tables are ingested into the cluster, while external tables reference data stored outside the cluster and are queried via `external_table()` with their own `.show external tables` metadata commands. Materialized views are queried like internal tables.
 
-KQL identifiers with spaces or special characters must be referenced using bracket quoting such as `['table-name']` or `["table name"]`. When using external tables, keep the identifier quoted so the server can wrap it in `external_table("...")`.
+KQL identifiers with spaces or special characters must be referenced using bracket quoting such as `['table-name']` or `["table name"]`. For external tables, the server will wrap bracket-quoted identifiers in `external_table("...")`, so keep the identifier quoted when it contains special characters.
 
 | Tool | Description |
 |------|-------------|
