@@ -148,6 +148,17 @@ class KustoDatabase:
         external_name = self._parse_external_table_name(query)
         if external_name:
             return external_name
+        if query.startswith("["):
+            end = query.find("]")
+            if end != -1:
+                content = query[1:end].strip()
+                if (
+                    len(content) >= 2
+                    and content[0] in {"'", '"'}
+                    and content[0] == content[-1]
+                ):
+                    return content[1:-1]
+                return content
         return query.split("|")[0].strip()
 
     def _get_table_names(
@@ -279,14 +290,17 @@ class KustoDatabase:
                 and " " not in table_name
                 and not stripped_query.lower().startswith("external_table(")
             ):
-                leading_ws = query[: len(query) - len(stripped_query)]
+                leading_whitespace = query[: len(query) - len(stripped_query)]
+                escaped_table_name = (
+                    table_name.replace("\\", "\\\\").replace('"', '\\"')
+                )
                 rewritten = re.sub(
                     rf"^{re.escape(table_name)}",
-                    f'external_table("{table_name}")',
+                    f'external_table("{escaped_table_name}")',
                     stripped_query,
                     count=1,
                 )
-                query = f"{leading_ws}{rewritten}"
+                query = f"{leading_whitespace}{rewritten}"
             properties = _make_request_properties()
             response = client.execute(database, query, properties)
             return _format_results(response.primary_results[0])
