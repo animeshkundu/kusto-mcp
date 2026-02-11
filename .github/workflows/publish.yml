@@ -37,7 +37,9 @@ jobs:
           current = match.group(1)
           parts = current.split(".")
           if len(parts) != 3 or not all(part.isdigit() for part in parts):
-              raise SystemExit(f"Unsupported version format: {current}")
+              raise SystemExit(
+                  f"Version must follow semantic versioning (major.minor.patch): {current}"
+              )
           major, minor, patch = map(int, parts)
           new_version = f"{major}.{minor}.{patch + 1}"
           updated = re.sub(
@@ -63,10 +65,6 @@ jobs:
 
       - name: Commit version bump
         run: |
-          if git diff --quiet -- pyproject.toml; then
-            echo "No version change to commit."
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add pyproject.toml
