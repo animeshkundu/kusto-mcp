@@ -60,6 +60,37 @@ _TABLE_KIND_ALIASES = {
 }
 _LIST_TABLE_KINDS = {"internal", "external", "materialized_view", "all"}
 _QUERY_TABLE_KINDS = {"internal", "external", "materialized_view"}
+# Allow dotted identifiers like schema.table while avoiding consecutive dots.
+_IDENTIFIER_PATTERN = r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w+)*"
+_IDENTIFIER_REGEX = re.compile(rf"^{_IDENTIFIER_PATTERN}$")
+_JOIN_TABLE_PATTERN = re.compile(
+    rf"""
+    (?P<prefix>\bjoin\b.*?\s+)
+    (?P<table>
+        \(
+            (?P<paren_inner>\[[^\]]+\]|{_IDENTIFIER_PATTERN})
+        \)
+        |
+        (?P<inner>\[[^\]]+\]|{_IDENTIFIER_PATTERN})
+    )
+    (?P<suffix>\s+on\b.*)$
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+_UNION_TABLE_PATTERN = re.compile(
+    rf"""
+    (?P<prefix>(?:\bunion\b|,)\s*)
+    (?P<table>
+        \(
+            (?P<paren_inner>\[[^\]]+\]|{_IDENTIFIER_PATTERN})
+        \)
+        |
+        (?P<inner>\[[^\]]+\]|{_IDENTIFIER_PATTERN})
+    )
+    (?=\s*(?:,|$))
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
 
 
 def _normalize_table_kind(
@@ -149,6 +180,161 @@ class KustoDatabase:
             table_name.replace("\\", "\\\\").replace('"', '\\"').replace("'", "\\'")
         )
 
+    def _rewrite_external_table_token(self, token: str) -> str | None:
+        trimmed = token.strip()
+        if not trimmed or trimmed.lower().startswith("external_table("):
+            return None
+        table_name = self._extract_table_name(trimmed)
+        if not table_name:
+            return None
+        if trimmed == table_name or (
+            trimmed.startswith("[") and trimmed.endswith("]")
+        ):
+            escaped_table_name = self._escape_external_table_name(table_name)
+            return f'external_table("{escaped_table_name}")'
+        return None
+
+    def _rewrite_leading_external_table_segment(self, segment: str) -> str:
+        if not segment.strip():
+            return segment
+        leading_ws = segment[: len(segment) - len(segment.lstrip())]
+        trailing_ws = segment[len(segment.rstrip()):]
+        core_end = len(segment) - len(trailing_ws)
+        core = segment[len(leading_ws):core_end]
+        rewritten = self._rewrite_external_table_token(core)
+        if rewritten:
+            return f"{leading_ws}{rewritten}{trailing_ws}"
+        return segment
+
+    def _rewrite_join_segment(self, segment: str) -> str:
+        stripped = segment.lstrip()
+        if not stripped.lower().startswith("join"):
+            return segment
+        leading_ws = segment[: len(segment) - len(stripped)]
+
+        def replace(match: re.Match) -> str:
+            inner = match.group("paren_inner") or match.group("inner")
+            rewritten = self._rewrite_external_table_token(inner)
+            if not rewritten:
+                return match.group(0)
+            table_token = (
+                f"({rewritten})" if match.group("paren_inner") else rewritten
+            )
+            return f"{match.group('prefix')}{table_token}{match.group('suffix')}"
+
+        # Rewrite only the first join token in the segment.
+        rewritten = _JOIN_TABLE_PATTERN.sub(replace, stripped, count=1)
+        return f"{leading_ws}{rewritten}"
+
+    def _rewrite_union_segment(self, segment: str) -> str:
+        stripped = segment.lstrip()
+        if not stripped.lower().startswith("union"):
+            return segment
+        leading_ws = segment[: len(segment) - len(stripped)]
+
+        def replace(match: re.Match) -> str:
+            inner = match.group("paren_inner") or match.group("inner")
+            rewritten = self._rewrite_external_table_token(inner)
+            if not rewritten:
+                return match.group(0)
+            table_token = (
+                f"({rewritten})" if match.group("paren_inner") else rewritten
+            )
+            return f"{match.group('prefix')}{table_token}"
+
+        rewritten = _UNION_TABLE_PATTERN.sub(replace, stripped)
+        return f"{leading_ws}{rewritten}"
+
+    def _rewrite_external_table_query(self, query: str) -> str:
+        stripped_query = query.lstrip()
+        if not stripped_query:
+            return query
+        leading_ws = query[: len(query) - len(stripped_query)]
+        segments, separators, balanced = self._split_pipeline(stripped_query)
+        if not balanced:
+            logger.warning(
+                "Skipping external table rewrite due to unbalanced brackets or parentheses."
+            )
+            return query
+        segments[0] = self._rewrite_leading_external_table_segment(segments[0])
+        segments = [self._rewrite_join_segment(seg) for seg in segments]
+        segments = [self._rewrite_union_segment(seg) for seg in segments]
+        rebuilt = "".join(
+            segment + sep for segment, sep in zip(segments, separators)
+        )
+        if segments:
+            rebuilt += segments[-1]
+        return f"{leading_ws}{rebuilt}"
+
+    def _split_pipeline(self, query: str) -> tuple[list[str], list[str], bool]:
+        segments: list[str] = []
+        separators: list[str] = []
+        current: list[str] = []
+        paren_depth = 0
+        bracket_depth = 0
+        in_single_quote = False
+        in_double_quote = False
+        escape = False
+        balanced = True
+
+        for ch in query:
+            if in_single_quote or in_double_quote:
+                if escape:
+                    current.append(ch)
+                    escape = False
+                    continue
+                if ch == "\\":
+                    current.append(ch)
+                    escape = True
+                    continue
+                current.append(ch)
+                if in_single_quote and ch == "'":
+                    in_single_quote = False
+                elif in_double_quote and ch == '"':
+                    in_double_quote = False
+                continue
+            if ch == "'":
+                in_single_quote = True
+                current.append(ch)
+                continue
+            if ch == '"':
+                in_double_quote = True
+                current.append(ch)
+                continue
+            if ch == "(":
+                paren_depth += 1
+                current.append(ch)
+                continue
+            if ch == ")":
+                paren_depth -= 1
+                if paren_depth < 0:
+                    balanced = False
+                    paren_depth = 0
+                current.append(ch)
+                continue
+            if ch == "[":
+                bracket_depth += 1
+                current.append(ch)
+                continue
+            if ch == "]":
+                bracket_depth -= 1
+                if bracket_depth < 0:
+                    balanced = False
+                    bracket_depth = 0
+                current.append(ch)
+                continue
+            if ch == "|" and paren_depth == 0 and bracket_depth == 0:
+                segments.append("".join(current))
+                separators.append("|")
+                current = []
+                continue
+            current.append(ch)
+
+        segments.append("".join(current))
+        if paren_depth or bracket_depth:
+            balanced = False
+        return segments, separators, balanced
+
     def _extract_table_name(self, query: str) -> str:
         """Extract the leading table name or external_table("...") argument."""
         query = query.strip()
@@ -167,7 +353,7 @@ class KustoDatabase:
                     return ""
                 return content
         segment = query.split("|")[0].strip()
-        if re.match(r"^[A-Za-z_][\w.]*$", segment):
+        if _IDENTIFIER_REGEX.match(segment):
             return segment
         return ""
 
@@ -295,27 +481,7 @@ class KustoDatabase:
             raise ValueError("Should not use management commands")
         try:
             client = self._get_client(cluster)
-            stripped_query = query.lstrip()
-            prefix_segment = stripped_query.split("|")[0].strip()
-            table_name = self._extract_table_name(prefix_segment)
-            bracketed = prefix_segment.startswith("[") and prefix_segment.endswith("]")
-            if (
-                table_name
-                and prefix_segment
-                and not stripped_query.lower().startswith("external_table(")
-                and (
-                    prefix_segment == table_name
-                    or bracketed
-                )
-            ):
-                leading_length = len(query) - len(stripped_query)
-                leading_whitespace = query[:leading_length]
-                escaped_table_name = self._escape_external_table_name(table_name)
-                rewritten = (
-                    f'external_table("{escaped_table_name}")'
-                    f"{stripped_query[len(prefix_segment):]}"
-                )
-                query = f"{leading_whitespace}{rewritten}"
+            query = self._rewrite_external_table_query(query)
             properties = _make_request_properties()
             response = client.execute(database, query, properties)
             return _format_results(response.primary_results[0])

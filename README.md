@@ -92,6 +92,8 @@ Table kinds follow Kusto semantics: internal tables are ingested into the cluste
 
 KQL identifiers with spaces or special characters must be referenced using bracket quoting such as `['table-name']` or `["table name"]`. For external tables, use bracket-quoted identifiers (for example, `['table-name']`), and the server will wrap them in `external_table("table-name")`.
 
+When `table_kind='external'`, the server rewrites the leading table reference and any direct `join`/`union` table tokens. For subqueries or let bindings, use `external_table()` explicitly.
+
 | Tool | Description |
 |------|-------------|
 | `list_tables` | List tables by kind (`internal`, `external`, `materialized_view`, or `all`) |

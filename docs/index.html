@@ -202,7 +202,7 @@
   <section id="tools">
     <h2>Tools</h2>
     <p style="margin-bottom:20px;color:var(--text-muted)">All tools accept <code>cluster</code> and <code>database</code> as required parameters.</p>
-    <p style="margin-bottom:20px;color:var(--text-muted)">Internal tables are ingested into the cluster. External tables reference data stored outside the cluster and are queried via <code>external_table()</code>. Materialized views are queried like internal tables.</p>
+      <p style="margin-bottom:20px;color:var(--text-muted)">Internal tables are ingested into the cluster. External tables reference data stored outside the cluster and are queried via <code>external_table()</code>. Materialized views are queried like internal tables. When using <code>table_kind='external'</code>, the server rewrites leading table references and direct <code>join</code>/<code>union</code> table tokens; use <code>external_table()</code> explicitly in subqueries or let bindings.</p>
     <table>
       <thead><tr><th>Tool</th><th>Description</th></tr></thead>
       <tbody>
