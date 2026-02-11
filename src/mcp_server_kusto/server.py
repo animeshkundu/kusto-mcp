@@ -140,7 +140,9 @@ class KustoDatabase:
             if ch == quote:
                 return "".join(name_chars)
             name_chars.append(ch)
-        return ""
+        if escaped:
+            name_chars.append(escape_char)
+        return "".join(name_chars)
 
     def _escape_external_table_name(self, table_name: str) -> str:
         return (
@@ -166,7 +168,10 @@ class KustoDatabase:
                 ):
                     return content[1:-1]
                 return content
-        return query.split("|")[0].strip()
+        segment = query.split("|")[0].strip()
+        if re.match(r"^[A-Za-z_][\w.]*$", segment):
+            return segment
+        return ""
 
     def _get_table_names(
         self,
@@ -300,17 +305,15 @@ class KustoDatabase:
                 and prefix_segment
                 and not stripped_query.lower().startswith("external_table(")
                 and (
-                    " " not in prefix_segment
+                    prefix_segment == table_name
                     or (prefix_segment.startswith("[") and prefix_segment.endswith("]"))
                 )
             ):
                 leading_whitespace = query[: len(query) - len(stripped_query)]
                 escaped_table_name = self._escape_external_table_name(table_name)
-                rewritten = re.sub(
-                    rf"^{re.escape(prefix_segment)}",
-                    f'external_table("{escaped_table_name}")',
-                    stripped_query,
-                    count=1,
+                rewritten = (
+                    f'external_table("{escaped_table_name}")'
+                    f"{stripped_query[len(prefix_segment):]}"
                 )
                 query = f"{leading_whitespace}{rewritten}"
             properties = _make_request_properties()
