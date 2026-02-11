@@ -120,7 +120,7 @@ class KustoDatabase:
         lower_query = query.lower()
         if not lower_query.startswith(prefix):
             return ""
-        rest = query[len(prefix) :].lstrip()
+        rest = query[len(prefix):].lstrip()
         if not rest:
             return ""
         quote = rest[0]
@@ -295,16 +295,17 @@ class KustoDatabase:
             raise ValueError("Should not use management commands")
         try:
             client = self._get_client(cluster)
-            table_name = self._extract_table_name(query)
             stripped_query = query.lstrip()
             prefix_segment = stripped_query.split("|")[0].strip()
+            table_name = self._extract_table_name(prefix_segment)
+            bracketed = prefix_segment.startswith("[") and prefix_segment.endswith("]")
             if (
                 table_name
                 and prefix_segment
                 and not stripped_query.lower().startswith("external_table(")
                 and (
                     prefix_segment == table_name
-                    or (prefix_segment.startswith("[") and prefix_segment.endswith("]"))
+                    or bracketed
                 )
             ):
                 leading_length = len(query) - len(stripped_query)
