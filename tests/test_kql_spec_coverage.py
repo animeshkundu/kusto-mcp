@@ -14,6 +14,7 @@ from mcp_server_kusto.server import KustoDatabase
         ("['Ext-Table'] | take 1", 'external_table("Ext-Table") | take 1'),
         ('external_table("ExtTable") | take 1', 'external_table("ExtTable") | take 1'),
         ("database('db').Table | take 1", "database('db').Table | take 1"),
+        # Let statements are not rewritten; the tool only wraps leading table refs.
         ("let T = ExtTable; T | take 1", "let T = ExtTable; T | take 1"),
     ],
 )
