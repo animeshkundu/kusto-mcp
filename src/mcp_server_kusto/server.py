@@ -265,7 +265,7 @@ class KustoDatabase:
         self, cluster: str, database: str, query: str
     ) -> str:
         logger.debug(f"Executing query: {query}")
-        if query.startswith("."):
+        if query.lstrip().startswith("."):
             raise ValueError("Should not use management commands")
         try:
             client = self._get_client(cluster)
@@ -291,7 +291,7 @@ class KustoDatabase:
         self, cluster: str, database: str, query: str
     ) -> str:
         logger.debug(f"Executing query: {query}")
-        if query.startswith("."):
+        if query.lstrip().startswith("."):
             raise ValueError("Should not use management commands")
         try:
             client = self._get_client(cluster)

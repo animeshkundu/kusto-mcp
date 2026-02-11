@@ -171,16 +171,16 @@
     <div class="quickstart-grid">
       <div class="quickstart-card">
         <h3>Claude Code</h3>
-        <pre><code>claude mcp add kusto -- uvx kusto-mcp</code></pre>
+          <pre><code>claude mcp add kusto -- uvx --from git+https://github.com/animeshkundu/kusto-mcp kusto-mcp</code></pre>
       </div>
       <div class="quickstart-card">
         <h3>Claude Desktop</h3>
         <p style="margin-bottom:12px;color:var(--text-muted)">Add to <code>claude_desktop_config.json</code>:</p>
-        <pre><code>{
+          <pre><code>{
   "mcpServers": {
     "kusto": {
       "command": "uvx",
-      "args": ["kusto-mcp"]
+      "args": ["--from", "git+https://github.com/animeshkundu/kusto-mcp", "kusto-mcp"]
     }
   }
 }</code></pre>

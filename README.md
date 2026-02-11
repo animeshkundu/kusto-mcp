@@ -90,11 +90,24 @@ All tools require `cluster` and `database` parameters. The LLM provides these au
 
 Table kinds follow Kusto semantics: internal tables are ingested into the cluster, while external tables reference data stored outside the cluster and are queried via `external_table()` with their own `.show external tables` metadata commands. Materialized views are queried like internal tables.
 
+KQL identifiers with spaces or special characters must be referenced using bracket quoting such as `['table-name']` or `["table name"]`. When using external tables, keep the identifier quoted so the server can wrap it in `external_table("...")`.
+
 | Tool | Description |
 |------|-------------|
 | `list_tables` | List tables by kind (`internal`, `external`, `materialized_view`, or `all`) |
 | `execute_query` | Run KQL; set `table_kind='external'` for external tables |
 | `retrieve_table_schema` | Get table schema; set `table_kind='external'` for external tables |
+
+## KQL Coverage Plan
+
+We are growing coverage of KQL query shapes based on the official KQL reference. The current plan is:
+
+1. Table reference forms (plain identifiers, bracket-quoted identifiers, and `external_table()`).
+2. Common query operators (`where`, `project`, `summarize`, `join`, `union`).
+3. Function and multi-statement forms (`let`, `datatable`, `database()`/`cluster()` references).
+4. Failure coverage (management command rejection, unknown identifiers, schema hints).
+
+Each phase adds data-driven tests that validate the exact query text the MCP sends to Kusto.
 
 ## Why kusto-mcp?
 

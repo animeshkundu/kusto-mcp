@@ -197,6 +197,14 @@ class TestKustoDatabase:
                 "https://cluster.kusto.windows.net", "mydb", ".show tables"
             )
 
+    def test_execute_query_rejects_whitespace_management_commands(self):
+        cred = MagicMock()
+        db = KustoDatabase(cred)
+        with pytest.raises(ValueError, match="management commands"):
+            db.execute_query_internal_table(
+                "https://cluster.kusto.windows.net", "mydb", "   .show tables"
+            )
+
     def test_execute_external_query_rejects_management_commands(self):
         cred = MagicMock()
         db = KustoDatabase(cred)
