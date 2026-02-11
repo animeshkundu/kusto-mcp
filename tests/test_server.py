@@ -340,6 +340,62 @@ class TestKustoDatabase:
 
     @patch("mcp_server_kusto.server.KustoClient")
     @patch("mcp_server_kusto.server.build_kcsb")
+    def test_execute_query_external_table_preserves_existing_call(
+        self, mock_build, mock_client_cls
+    ):
+        result_table = MagicMock()
+        result_table.columns = []
+        result_table.__iter__ = MagicMock(return_value=iter([]))
+
+        mock_response = MagicMock()
+        mock_response.primary_results = [result_table]
+
+        mock_client = MagicMock()
+        mock_client.execute.return_value = mock_response
+        mock_client_cls.return_value = mock_client
+
+        cred = MagicMock()
+        db = KustoDatabase(cred)
+        db.execute_query_external_table(
+            "https://cluster.kusto.windows.net",
+            "mydb",
+            'external_table("ExtTable") | take 1',
+        )
+
+        call_args = mock_client.execute.call_args
+        query_sent = call_args[0][1]
+        assert query_sent.startswith('external_table("ExtTable")')
+
+    @patch("mcp_server_kusto.server.KustoClient")
+    @patch("mcp_server_kusto.server.build_kcsb")
+    def test_execute_query_external_table_bracketed_name(
+        self, mock_build, mock_client_cls
+    ):
+        result_table = MagicMock()
+        result_table.columns = []
+        result_table.__iter__ = MagicMock(return_value=iter([]))
+
+        mock_response = MagicMock()
+        mock_response.primary_results = [result_table]
+
+        mock_client = MagicMock()
+        mock_client.execute.return_value = mock_response
+        mock_client_cls.return_value = mock_client
+
+        cred = MagicMock()
+        db = KustoDatabase(cred)
+        db.execute_query_external_table(
+            "https://cluster.kusto.windows.net",
+            "mydb",
+            '["Ext Table"] | take 1',
+        )
+
+        call_args = mock_client.execute.call_args
+        query_sent = call_args[0][1]
+        assert 'external_table("Ext Table")' in query_sent
+
+    @patch("mcp_server_kusto.server.KustoClient")
+    @patch("mcp_server_kusto.server.build_kcsb")
     def test_retrieve_internal_table_schema(self, mock_build, mock_client_cls):
         col = MagicMock()
         col.column_name = "ColumnName"

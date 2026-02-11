@@ -507,7 +507,7 @@ async def main(tenant_id: str = None):
         if alias:
             name, alias_arguments = alias
             if arguments:
-                arguments = {**alias_arguments, **arguments}
+                arguments = {**arguments, **alias_arguments}
             else:
                 arguments = dict(alias_arguments)
         if name not in tool_name_list:
